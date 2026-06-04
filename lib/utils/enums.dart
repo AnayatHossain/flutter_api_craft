@@ -28,7 +28,7 @@ enum RawBodyContentType {
   javascript,
 }
 
-/// Authorization types
+/// Authorization types (mirrors all Postman auth types)
 enum ApiAuthorizationType {
   none,
   inheritFromParent,
