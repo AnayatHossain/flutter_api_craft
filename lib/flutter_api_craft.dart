@@ -111,6 +111,23 @@ class FlutterApiCraft {
   /// Called regardless of outcome (like a `finally` block).
   final void Function()? onComplete;
 
+  // ── Testing ───────────────────────────────────────────────────────────────
+
+  /// Optional HTTP client — inject a [MockClient] here for unit tests.
+  /// If null, a default [http.Client] is used.
+  ///
+  /// Example:
+  /// ```dart
+  /// FlutterApiCraft(
+  ///   baseUrl: 'https://api.example.com',
+  ///   path: '/login',
+  ///   httpClient: MockClient((request) async {
+  ///     return http.Response('{"success": true}', 200);
+  ///   }),
+  /// )
+  /// ```
+  final http.Client? httpClient;
+
   // ── Constructor ───────────────────────────────────────────────────────────
 
   const FlutterApiCraft({
@@ -138,6 +155,7 @@ class FlutterApiCraft {
     this.onSuccess,
     this.onError,
     this.onComplete,
+    this.httpClient, // ← NEW: inject for testing
   });
 
   // ── Main call method ──────────────────────────────────────────────────────
@@ -181,7 +199,6 @@ class FlutterApiCraft {
     if (response.statusCode == 401 && onUnauthorizedRefreshToken != null) {
       final newToken = await onUnauthorizedRefreshToken!();
       if (newToken != null) {
-        // Rebuild with refreshed bearer token and retry once.
         final refreshed = FlutterApiCraft(
           baseUrl: baseUrl,
           path: path,
@@ -195,6 +212,7 @@ class FlutterApiCraft {
           apiSettings: apiSettings,
           enableBodyResponseDebugPrint: enableBodyResponseDebugPrint,
           enableApiSuccessResponseDebugPrint: enableApiSuccessResponseDebugPrint,
+          httpClient: httpClient, // ← pass through to refreshed instance
         );
         return refreshed._executeOnce();
       }
@@ -211,15 +229,18 @@ class FlutterApiCraft {
   // ── Single execution ──────────────────────────────────────────────────────
 
   Future<ApiResponse> _executeOnce() async {
+    // Use injected client or create a fresh default one
+    final client = httpClient ?? http.Client();
+
     try {
-      // Mutable copies for scripts to modify.
+      // Mutable copies for scripts to modify
       final mutableHeaders = Map<String, String>.from(apiHeaders);
       final mutableParams = Map<String, String>.from(apiParams?.query ?? {});
       final mutableBody = <String, dynamic>{};
 
       if (apiBody?.rawData is Map) {
-        mutableBody.addAll(Map<String, dynamic>.from(
-            apiBody!.rawData as Map<String, dynamic>));
+        mutableBody.addAll(
+            Map<String, dynamic>.from(apiBody!.rawData as Map<String, dynamic>));
       }
 
       // ① Pre-request script
@@ -249,12 +270,12 @@ class FlutterApiCraft {
         cookies: apiCookies,
       );
 
-      // ④ Send
-      final streamedResponse = await request.send().timeout(
-        apiSettings.receiveTimeout,
-      );
-      final responseString =
-      await streamedResponse.stream.bytesToString();
+      // ④ Send via the (possibly mocked) client
+      final streamedResponse = await client
+          .send(request)
+          .timeout(apiSettings.receiveTimeout);
+
+      final responseString = await streamedResponse.stream.bytesToString();
       final responseHeaders = streamedResponse.headers;
 
       // ⑤ Handle cookies from response
@@ -300,8 +321,8 @@ class FlutterApiCraft {
       // ⑩ Extract error message
       String? errorMsg;
       if (!successFlag) {
-        errorMsg = _extractMessage(parsedBody) ??
-            'Request failed with status $code';
+        errorMsg =
+            _extractMessage(parsedBody) ?? 'Request failed with status $code';
       }
 
       if (enableApiSuccessResponseDebugPrint && successFlag) {
@@ -337,6 +358,9 @@ class FlutterApiCraft {
         errorMessage: e.toString(),
         exception: e,
       );
+    } finally {
+      // Only close if we created the client ourselves (not injected)
+      if (httpClient == null) client.close();
     }
   }
 
@@ -356,9 +380,11 @@ class FlutterApiCraft {
         getx.Get.snackbar(
           cfg.successTitle ?? 'Success',
           msg,
-          backgroundColor: cfg.successBackgroundColor ?? cfg.backgroundColor ?? Colors.green,
+          backgroundColor:
+          cfg.successBackgroundColor ?? cfg.backgroundColor ?? Colors.green,
           colorText: cfg.textColor as Color? ?? Colors.white,
-          snackPosition: cfg.position as getx.SnackPosition? ?? getx.SnackPosition.BOTTOM,
+          snackPosition: cfg.position as getx.SnackPosition? ??
+              getx.SnackPosition.BOTTOM,
           duration: cfg.duration,
           borderRadius: cfg.borderRadius,
           margin: cfg.margin as EdgeInsets? ?? const EdgeInsets.all(12),
@@ -375,9 +401,11 @@ class FlutterApiCraft {
         getx.Get.snackbar(
           cfg.errorTitle ?? 'Error',
           msg,
-          backgroundColor: cfg.errorBackgroundColor ?? cfg.backgroundColor ?? Colors.red,
+          backgroundColor:
+          cfg.errorBackgroundColor ?? cfg.backgroundColor ?? Colors.red,
           colorText: cfg.textColor as Color? ?? Colors.white,
-          snackPosition: cfg.position as getx.SnackPosition? ?? getx.SnackPosition.BOTTOM,
+          snackPosition: cfg.position as getx.SnackPosition? ??
+              getx.SnackPosition.BOTTOM,
           duration: cfg.duration,
           borderRadius: cfg.borderRadius,
           margin: cfg.margin as EdgeInsets? ?? const EdgeInsets.all(12),
