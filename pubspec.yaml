@@ -1,6 +1,6 @@
 name: flutter_api_craft
 description: "A comprehensive Flutter API client package supporting all HTTP methods, body types, authorization, headers, params, scripts, cookies, interceptors, loading indicators, snackbars, and navigation — all in one place."
-version: 0.0.1
+version: 0.0.2
 homepage: "https://github.com/AnayatHossain/flutter_api_craft"
 
 environment:

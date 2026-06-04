@@ -1,3 +1,13 @@
+// ── Public API exports ────────────────────────────────────────────────────────
+// A single import of this file exposes everything the caller needs.
+export 'utils/enums.dart';
+export 'models/api_authorization.dart';
+export 'models/api_body.dart';
+export 'models/api_models.dart';
+export 'models/api_response.dart';
+export 'interceptors/cookie_manager.dart';
+
+// ── Internal imports ──────────────────────────────────────────────────────────
 import 'dart:convert';
 import 'dart:developer' as dev;
 

@@ -1,3 +1,7 @@
+## 0.0.2
+
+- Export all public classes so a single import covers the entire API.
+
 ## 0.0.1
 
 - Initial release.
