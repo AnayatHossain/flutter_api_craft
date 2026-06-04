@@ -10,7 +10,7 @@ Add the package to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_api_craft: ^0.0.2
+  flutter_api_craft: ^0.0.3
 ```
 
 Then run:
