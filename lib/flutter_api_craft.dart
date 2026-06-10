@@ -300,7 +300,7 @@ class FlutterApiCraft {
     }
 
     if (!response.isSuccess && attempt < retryCount) {
-      await Future.delayed(retryDelay);
+      await Future<void>.delayed(retryDelay);
       return _executeWithRetry(attempt: attempt + 1);
     }
 
@@ -348,7 +348,7 @@ class FlutterApiCraft {
       );
 
       final streamedResponse =
-          await client.send(request).timeout(apiSettings.receiveTimeout);
+      await client.send(request).timeout(apiSettings.receiveTimeout);
       final responseString = await streamedResponse.stream.bytesToString();
       final responseHeaders = streamedResponse.headers;
 
@@ -444,7 +444,7 @@ class FlutterApiCraft {
         getx.Get.snackbar(
           cfg.successTitle ?? 'Success',
           msg,
-          // ✅ Cast নেই, সরাসরি use করো
+          // Use config colors directly without casting
           backgroundColor:
           cfg.successBackgroundColor ?? cfg.backgroundColor ?? Colors.green,
           colorText: cfg.textColor ?? Colors.white,
@@ -485,28 +485,34 @@ class FlutterApiCraft {
       case NavigationAction.none:
         break;
       case NavigationAction.pop:
-        getx.Get.back();
+        getx.Get.back<void>();
       case NavigationAction.popUntil:
         if (nav.routeName != null) {
+          // ignore: inference_failure_on_function_invocation
           getx.Get.until((route) => route.settings.name == nav.routeName);
         }
       case NavigationAction.pushNamed:
         if (nav.routeName != null) {
-          getx.Get.toNamed(nav.routeName!, arguments: nav.arguments);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.toNamed<void>(nav.routeName!, arguments: nav.arguments);
         }
       case NavigationAction.pushReplacement:
         if (nav.routeName != null) {
-          getx.Get.offNamed(nav.routeName!, arguments: nav.arguments);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.offNamed<void>(nav.routeName!, arguments: nav.arguments);
         }
       case NavigationAction.pushAndRemoveUntil:
         if (nav.routeName != null) {
-          getx.Get.offAllNamed(nav.routeName!, arguments: nav.arguments);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.offAllNamed<void>(nav.routeName!, arguments: nav.arguments);
         }
       case NavigationAction.offAll:
         if (nav.routeName != null) {
-          getx.Get.offAllNamed(nav.routeName!, arguments: nav.arguments);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.offAllNamed<void>(nav.routeName!, arguments: nav.arguments);
         } else if (nav.widgetBuilder != null) {
-          getx.Get.offAll(nav.widgetBuilder!);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.offAll<void>(nav.widgetBuilder!);
         }
     }
   }

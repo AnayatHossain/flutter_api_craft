@@ -31,19 +31,19 @@ class ApiScript {
   /// Receives mutable [headers], [params], and [body] maps. Any changes made
   /// to these maps are forwarded to the actual request.
   final Future<void> Function({
-    required Map<String, String> headers,
-    required Map<String, String> params,
-    required Map<String, dynamic> body,
+  required Map<String, String> headers,
+  required Map<String, String> params,
+  required Map<String, dynamic> body,
   })? preRequest;
 
   /// Called after the HTTP response is received.
   ///
-  /// Receives the [statusCode], the parsed [responseBody], and the
-  /// response [headers].
+  /// Receives the `statusCode`, the parsed `responseBody`, and the
+  /// response `headers`.
   final Future<void> Function({
-    required int statusCode,
-    required dynamic responseBody,
-    required Map<String, String> headers,
+  required int statusCode,
+  required dynamic responseBody,
+  required Map<String, String> headers,
   })? postResponse;
 
   /// Creates an [ApiScript] with optional pre-request and post-response hooks.
@@ -186,26 +186,26 @@ class ApiSuccessNavigation {
   /// Calls `Get.toNamed(route)` after a successful response.
   const ApiSuccessNavigation.push(String route, {Object? args})
       : this(
-          action: NavigationAction.pushNamed,
-          routeName: route,
-          arguments: args,
-        );
+    action: NavigationAction.pushNamed,
+    routeName: route,
+    arguments: args,
+  );
 
   /// Calls `Get.offNamed(route)` after a successful response.
   const ApiSuccessNavigation.replace(String route, {Object? args})
       : this(
-          action: NavigationAction.pushReplacement,
-          routeName: route,
-          arguments: args,
-        );
+    action: NavigationAction.pushReplacement,
+    routeName: route,
+    arguments: args,
+  );
 
   /// Calls `Get.offAllNamed(route)` after a successful response.
   const ApiSuccessNavigation.offAll(String route, {Object? args})
       : this(
-          action: NavigationAction.offAll,
-          routeName: route,
-          arguments: args,
-        );
+    action: NavigationAction.offAll,
+    routeName: route,
+    arguments: args,
+  );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -247,7 +247,7 @@ class ApiSnackBarConfig {
   final String? errorTitle;
 
   /// Fixed message for the error snackbar.
-  /// When null, [ApiResponse.errorMessage] is used.
+  /// When null, `ApiResponse.errorMessage` is used.
   final String? errorMessageOverride;
 
   /// Key used to read the error message from the response body Map.

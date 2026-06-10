@@ -1,4 +1,4 @@
-/// HTTP method types supported by [FlutterApiCraft].
+/// HTTP method types supported by `FlutterApiCraft`.
 ///
 /// Maps directly to the method selector in Postman.
 enum ApiType {
@@ -114,7 +114,7 @@ enum ApiKeyPlacement {
   queryParam,
 }
 
-/// Identifies which script slot to use in [ApiScript].
+/// Identifies which script slot to use in `ApiScript`.
 enum ScriptType {
   /// Runs before the HTTP request is sent.
   preRequest,

@@ -1,4 +1,4 @@
-/// The unified response object returned by every [FlutterApiCraft.call].
+/// The unified response object returned by every `FlutterApiCraft.call`.
 ///
 /// Never throws — all errors are captured and surfaced through this object.
 ///
@@ -90,5 +90,5 @@ class ApiResponse {
   @override
   String toString() =>
       'ApiResponse(statusCode: $statusCode, isSuccess: $isSuccess, '
-      'errorMessage: $errorMessage)';
+          'errorMessage: $errorMessage)';
 }
