@@ -1,3 +1,11 @@
+## 0.0.5
+
+- Fixed `pubspec.yaml` description length to meet pub.dev requirements (60–180 characters).
+- Removed unnecessary `dart:ui` import from `api_models.dart` (already provided by Flutter).
+- Updated `connectivity_plus` constraint to `^7.1.1` to support latest stable version.
+- Fixed `dart analyze` inference warnings: added explicit type args to `Future.delayed`, `Get.back`, and GetX navigation methods.
+- Fixed `comment_references` lint warnings in doc comments across `enums.dart`, `api_response.dart`, and `api_models.dart`.
+
 ## 0.0.4
 
 - Added full `///` documentation comments to all public classes, fields, and methods.
