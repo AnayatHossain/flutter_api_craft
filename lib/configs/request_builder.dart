@@ -1,16 +1,28 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
+import '../interceptors/authorization_builder.dart';
+import '../interceptors/cookie_manager.dart';
 import '../models/api_authorization.dart';
 import '../models/api_body.dart';
 import '../models/api_models.dart';
-import '../interceptors/authorization_builder.dart';
-import '../interceptors/cookie_manager.dart';
 import '../utils/enums.dart';
 
-/// Assembles an [http.BaseRequest] from all the configuration objects.
+/// Assembles an [http.BaseRequest] from all the [FlutterApiCraft] configuration
+/// objects.
+///
+/// This class is used internally and is not intended to be called directly
+/// by package consumers.
 class RequestBuilder {
   const RequestBuilder._();
 
+  /// Builds and returns the correct [http.BaseRequest] subtype:
+  ///
+  /// - [http.MultipartRequest] when [body.type] is [ApiBodyType.formData].
+  /// - [http.Request] for all other cases.
+  ///
+  /// Also merges [headers], authorization headers, and the cookie header.
   static Future<http.BaseRequest> build({
     required String baseUrl,
     required String path,
@@ -21,22 +33,20 @@ class RequestBuilder {
     ApiAuthorization? authorization,
     ApiCookies? cookies,
   }) async {
-    // 1️⃣  Build URL + query params
     final uri = _buildUri(baseUrl, path, params, authorization);
 
-    // 2️⃣  Merge headers
     final mergedHeaders = <String, String>{
       ...headers,
       ...AuthorizationBuilder.buildHeaders(authorization),
     };
 
-    // 3️⃣  Cookie header
-    final domain = uri.host;
     final cookieHeader = CookieManager.instance.buildCookieHeader(
-        domain, cookies, cookies?.extraCookies);
+      uri.host,
+      cookies,
+      cookies?.extraCookies,
+    );
     if (cookieHeader != null) mergedHeaders['cookie'] = cookieHeader;
 
-    // 4️⃣  Build request based on body type
     if (body != null && body.type == ApiBodyType.formData) {
       return _buildMultipart(uri, method, mergedHeaders, body);
     }
@@ -50,7 +60,11 @@ class RequestBuilder {
   // ── URI builder ───────────────────────────────────────────────────────────
 
   static Uri _buildUri(
-      String baseUrl, String path, ApiParams? params, ApiAuthorization? auth) {
+    String baseUrl,
+    String path,
+    ApiParams? params,
+    ApiAuthorization? auth,
+  ) {
     final rawUrl = path.startsWith('http')
         ? path
         : '${baseUrl.trimRight()}/${path.trimLeft()}';
@@ -68,14 +82,21 @@ class RequestBuilder {
 
     if (allQuery.isNotEmpty || multiQuery.isNotEmpty) {
       final queryParts = <String>[];
-      uri.queryParameters.forEach(
-              (k, v) => queryParts.add('${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}'));
-      allQuery.forEach(
-              (k, v) => queryParts.add('${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}'));
+      uri.queryParameters.forEach((k, v) {
+        queryParts.add(
+          '${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}',
+        );
+      });
+      allQuery.forEach((k, v) {
+        queryParts.add(
+          '${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}',
+        );
+      });
       multiQuery.forEach((k, vals) {
         for (final v in vals) {
           queryParts.add(
-              '${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}');
+            '${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}',
+          );
         }
       });
       uri = uri.replace(query: queryParts.join('&'));
@@ -84,7 +105,7 @@ class RequestBuilder {
     return uri;
   }
 
-  // ── Body applicator (for non-multipart requests) ──────────────────────────
+  // ── Body applicator ───────────────────────────────────────────────────────
 
   static void _applyBody(http.Request request, ApiBody? body) {
     if (body == null || body.type == ApiBodyType.none) return;
@@ -92,15 +113,9 @@ class RequestBuilder {
     switch (body.type) {
       case ApiBodyType.raw:
         _applyRawBody(request, body);
-        break;
-
       case ApiBodyType.xWwwFormUrlencoded:
         request.headers['content-type'] = 'application/x-www-form-urlencoded';
-        if (body.fields != null) {
-          request.bodyFields = body.fields!;
-        }
-        break;
-
+        if (body.fields != null) request.bodyFields = body.fields!;
       case ApiBodyType.graphQL:
         request.headers['content-type'] = 'application/json';
         final payload = <String, dynamic>{'query': body.graphQLQuery ?? ''};
@@ -108,16 +123,10 @@ class RequestBuilder {
           payload['variables'] = body.graphQLVariables;
         }
         request.body = jsonEncode(payload);
-        break;
-
       case ApiBodyType.binary:
         request.headers['content-type'] =
             body.binaryMimeType ?? 'application/octet-stream';
-        if (body.binaryBytes != null) {
-          request.bodyBytes = body.binaryBytes!;
-        }
-        break;
-
+        if (body.binaryBytes != null) request.bodyBytes = body.binaryBytes!;
       default:
         break;
     }
@@ -127,60 +136,55 @@ class RequestBuilder {
     switch (body.rawContentType) {
       case RawBodyContentType.json:
         request.headers['content-type'] = 'application/json';
-        if (body.rawData is String) {
-          request.body = body.rawData as String;
-        } else {
-          request.body = jsonEncode(body.rawData);
-        }
-        break;
+        request.body = body.rawData is String
+            ? body.rawData as String
+            : jsonEncode(body.rawData);
       case RawBodyContentType.text:
         request.headers['content-type'] = 'text/plain';
         request.body = body.rawData?.toString() ?? '';
-        break;
       case RawBodyContentType.xml:
         request.headers['content-type'] = 'application/xml';
         request.body = body.rawData?.toString() ?? '';
-        break;
       case RawBodyContentType.html:
         request.headers['content-type'] = 'text/html';
         request.body = body.rawData?.toString() ?? '';
-        break;
       case RawBodyContentType.javascript:
         request.headers['content-type'] = 'application/javascript';
         request.body = body.rawData?.toString() ?? '';
-        break;
     }
   }
 
   // ── Multipart builder ─────────────────────────────────────────────────────
 
   static Future<http.MultipartRequest> _buildMultipart(
-      Uri uri,
-      ApiType method,
-      Map<String, String> headers,
-      ApiBody body,
-      ) async {
+    Uri uri,
+    ApiType method,
+    Map<String, String> headers,
+    ApiBody body,
+  ) async {
     final request = http.MultipartRequest(_methodString(method), uri);
     request.headers.addAll(headers);
 
-    if (body.fields != null) {
-      request.fields.addAll(body.fields!);
-    }
+    if (body.fields != null) request.fields.addAll(body.fields!);
 
     if (body.files != null) {
       for (final apiFile in body.files!) {
         if (apiFile.file != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            apiFile.fieldName,
-            apiFile.file!.path,
-            filename: apiFile.filename,
-          ));
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              apiFile.fieldName,
+              apiFile.file!.path,
+              filename: apiFile.filename,
+            ),
+          );
         } else if (apiFile.bytes != null) {
-          request.files.add(http.MultipartFile.fromBytes(
-            apiFile.fieldName,
-            apiFile.bytes!,
-            filename: apiFile.filename,
-          ));
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              apiFile.fieldName,
+              apiFile.bytes!,
+              filename: apiFile.filename,
+            ),
+          );
         }
       }
     }
@@ -188,7 +192,7 @@ class RequestBuilder {
     return request;
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helper ────────────────────────────────────────────────────────────────
 
   static String _methodString(ApiType method) {
     switch (method) {
