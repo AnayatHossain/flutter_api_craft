@@ -1,5 +1,5 @@
 name: flutter_api_craft
-description: "A comprehensive Flutter API client — all HTTP methods, auth types (Bearer, Basic, OAuth2, API Key, JWT), body types (JSON, form-data, GraphQL, binary), params, cookies, scripts, loading, snackbars, and navigation in one place."
+description: "A comprehensive Flutter HTTP client with auth, retry, loading, snackbars, and GetX navigation support."
 version: 0.0.4
 homepage: "https://github.com/AnayatHossain/flutter_api_craft"
 repository: "https://github.com/AnayatHossain/flutter_api_craft"
@@ -23,7 +23,7 @@ dependencies:
   get: ^4.6.6
   flutter_easyloading: ^3.0.5
   shared_preferences: ^2.3.2
-  connectivity_plus: ^6.1.0
+  connectivity_plus: ^7.1.1
 
 dev_dependencies:
   flutter_test:

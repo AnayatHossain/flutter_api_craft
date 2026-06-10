@@ -1,9 +1,6 @@
-import 'dart:ui';
-
 import 'package:flutter/cupertino.dart';
 import 'package:get/get_navigation/src/snackbar/snackbar.dart';
-
-import '../utils/enums.dart';
+import 'package:flutter_api_craft/utils/enums.dart';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Scripts
