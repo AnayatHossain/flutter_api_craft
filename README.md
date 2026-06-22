@@ -95,8 +95,8 @@ ApiBody.urlEncoded({'username': 'admin', 'password': 'secret'})
 ApiBody.formData(
 fields: {'title': 'My Post'},
 files: [
-ApiFile(fieldName: 'image', file: File('path/to/image.jpg')),
-ApiFile(fieldName: 'doc', bytes: bytesList, filename: 'file.pdf'),
+ApiFile(fieldName: 'image', path: 'path/to/image.jpg'), // mobile/desktop
+ApiFile(fieldName: 'doc', bytes: bytesList, filename: 'file.pdf'), // any platform (incl. web)
 ],
 )
 
@@ -106,10 +106,10 @@ query: 'query GetUser(\$id: ID!) { user(id: \$id) { id name } }',
 variables: {'id': '123'},
 )
 
-// Binary file
-ApiBody.binaryFile(File('path/to/file.pdf'), mimeType: 'application/pdf')
+// Binary file by path (mobile/desktop)
+ApiBody.binaryFile('path/to/file.pdf', mimeType: 'application/pdf')
 
-// Binary bytes
+// Binary bytes (any platform, incl. web)
 ApiBody.binaryBytes(bytes, mimeType: 'image/png')
 ```
 

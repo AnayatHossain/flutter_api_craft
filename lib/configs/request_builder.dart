@@ -6,6 +6,7 @@ import '../models/api_models.dart';
 import '../interceptors/authorization_builder.dart';
 import '../interceptors/cookie_manager.dart';
 import '../utils/enums.dart';
+import '../utils/file_reader.dart';
 
 /// Assembles an [http.BaseRequest] from all the configuration objects.
 class RequestBuilder {
@@ -43,7 +44,7 @@ class RequestBuilder {
 
     final request = http.Request(_methodString(method), uri);
     request.headers.addAll(mergedHeaders);
-    _applyBody(request, body);
+    await _applyBody(request, body);
     return request;
   }
 
@@ -86,7 +87,7 @@ class RequestBuilder {
 
   // ── Body applicator (for non-multipart requests) ──────────────────────────
 
-  static void _applyBody(http.Request request, ApiBody? body) {
+  static Future<void> _applyBody(http.Request request, ApiBody? body) async {
     if (body == null || body.type == ApiBodyType.none) return;
 
     switch (body.type) {
@@ -115,6 +116,9 @@ class RequestBuilder {
             body.binaryMimeType ?? 'application/octet-stream';
         if (body.binaryBytes != null) {
           request.bodyBytes = body.binaryBytes!;
+        } else if (body.binaryFilePath != null) {
+          // Reads from disk on mobile/desktop; throws UnsupportedError on web.
+          request.bodyBytes = await readFileBytes(body.binaryFilePath!);
         }
         break;
 
@@ -169,10 +173,12 @@ class RequestBuilder {
 
     if (body.files != null) {
       for (final apiFile in body.files!) {
-        if (apiFile.file != null) {
+        if (apiFile.path != null) {
+          // fromPath reads from disk on mobile/desktop; on web it throws
+          // UnsupportedError — provide bytes there instead.
           request.files.add(await http.MultipartFile.fromPath(
             apiFile.fieldName,
-            apiFile.file!.path,
+            apiFile.path!,
             filename: apiFile.filename,
           ));
         } else if (apiFile.bytes != null) {

@@ -1,17 +1,25 @@
-import 'dart:io';
 import '../utils/enums.dart';
 
 /// Holds request body data for all Postman-style body types.
+///
+/// This class is platform-agnostic and works on mobile, desktop **and web**.
+/// File uploads are referenced either by a file-system [String] path
+/// (mobile/desktop only) or by raw bytes (all platforms, including web).
 ///
 /// Usage examples:
 /// ```dart
 /// // JSON body
 /// ApiBody.json({'email': 'a@b.com', 'password': '123'})
 ///
-/// // Form data with files
+/// // Form data with files (path is mobile/desktop only)
 /// ApiBody.formData(
 ///   fields: {'title': 'My Post'},
-///   files: [ApiFile(fieldName: 'image', file: File('path/to/image.jpg'))],
+///   files: [ApiFile(fieldName: 'image', path: 'path/to/image.jpg')],
+/// )
+///
+/// // Form data with bytes (works everywhere, incl. web)
+/// ApiBody.formData(
+///   files: [ApiFile(fieldName: 'image', bytes: imageBytes, filename: 'i.jpg')],
 /// )
 ///
 /// // URL encoded
@@ -23,8 +31,11 @@ import '../utils/enums.dart';
 ///   variables: {'limit': 10},
 /// )
 ///
-/// // Binary file
-/// ApiBody.binaryFile(File('path/to/file.pdf'))
+/// // Binary file by path (mobile/desktop)
+/// ApiBody.binaryFile('path/to/file.pdf')
+///
+/// // Binary bytes (works everywhere, incl. web)
+/// ApiBody.binaryBytes(bytes, mimeType: 'application/pdf')
 /// ```
 class ApiBody {
   final ApiBodyType type;
@@ -42,7 +53,10 @@ class ApiBody {
   final Map<String, dynamic>? graphQLVariables;
 
   // ── Binary ────────────────────────────────────────────────────────────────
-  final File? binaryFile;
+  /// File-system path for a binary upload. Mobile/desktop only — on web the
+  /// file is read at request-build time and will throw. Use [binaryBytes] on
+  /// web instead.
+  final String? binaryFilePath;
   final List<int>? binaryBytes;
   final String? binaryMimeType;
 
@@ -54,7 +68,7 @@ class ApiBody {
     this.files,
     this.graphQLQuery,
     this.graphQLVariables,
-    this.binaryFile,
+    this.binaryFilePath,
     this.binaryBytes,
     this.binaryMimeType,
   });
@@ -125,11 +139,13 @@ class ApiBody {
     graphQLVariables: variables,
   );
 
-  /// Binary file upload from a [File] object.
-  ApiBody.binaryFile(File file, {String? mimeType})
+  /// Binary file upload from a file-system [path] (mobile/desktop only).
+  ///
+  /// On Flutter web there are no file paths — use [ApiBody.binaryBytes] there.
+  const ApiBody.binaryFile(String path, {String? mimeType})
       : this(
     type: ApiBodyType.binary,
-    binaryFile: file,
+    binaryFilePath: path,
     binaryMimeType: mimeType ?? 'application/octet-stream',
   );
 
@@ -143,15 +159,16 @@ class ApiBody {
 }
 
 /// A file attachment for multipart/form-data requests.
-/// Either [file] or [bytes] must be provided.
+/// Either [path] or [bytes] must be provided.
 class ApiFile {
   /// The field name in the form (e.g. "avatar", "document").
   final String fieldName;
 
-  /// File from disk. Use this for mobile/desktop file pickers.
-  final File? file;
+  /// File-system path. Use this for mobile/desktop file pickers.
+  /// Not supported on Flutter web — provide [bytes] there instead.
+  final String? path;
 
-  /// Raw bytes. Use this for in-memory files or web platform.
+  /// Raw bytes. Use this for in-memory files or the web platform.
   final List<int>? bytes;
 
   /// Optional filename override. If null, the file's basename is used.
@@ -162,12 +179,12 @@ class ApiFile {
 
   const ApiFile({
     required this.fieldName,
-    this.file,
+    this.path,
     this.bytes,
     this.filename,
     this.mimeType,
   }) : assert(
-  file != null || bytes != null,
-  'ApiFile: either file or bytes must be provided',
+  path != null || bytes != null,
+  'ApiFile: either path or bytes must be provided',
   );
 }

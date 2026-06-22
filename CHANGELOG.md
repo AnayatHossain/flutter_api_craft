@@ -1,3 +1,13 @@
+## 0.0.3
+
+- **Flutter web support.** Removed the unconditional `dart:io` import that
+  prevented the package from compiling on web. File handling is now platform
+  agnostic via a conditional import (`dart:io` on mobile/desktop, a stub on web).
+- **Breaking:** `ApiFile.file` (`File`) → `ApiFile.path` (`String`).
+- **Breaking:** `ApiBody.binaryFile(File)` → `ApiBody.binaryFile(String path)`.
+- On web, use `ApiFile(bytes: ...)` / `ApiBody.binaryBytes(...)`; the path-based
+  APIs throw `UnsupportedError` there.
+
 ## 0.0.2
 
 - Readme update.
