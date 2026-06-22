@@ -1,5 +1,44 @@
-// ── Public API exports ────────────────────────────────────────────────────────
-// A single import of this file exposes everything the caller needs.
+/// A comprehensive Flutter API client — the Postman of Flutter packages.
+///
+/// All HTTP configuration in one constructor call:
+///
+/// ```dart
+/// import 'package:flutter_api_craft/flutter_api_craft.dart';
+///
+/// final response = await FlutterApiCraft(
+///   baseUrl: 'https://api.example.com',
+///   path: '/auth/login',
+///   apiType: ApiType.post,
+///   apiBody: ApiBody.json({'email': 'user@example.com', 'password': '123456'}),
+///   enableLoading: true,
+///   enableApiSuccessResponseGetSnackBar: true,
+///   enableApiErrorResponseGetSnackBar: true,
+///   apiSuccessResponseNavigation: ApiSuccessNavigation.pop(),
+/// ).call();
+///
+/// if (response.isSuccess) {
+///   final token = response['data']['token'];
+/// }
+/// ```
+///
+/// ## Features
+///
+/// - **All HTTP methods**: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+/// - **All body types**: JSON, form-data, URL-encoded, XML, HTML, GraphQL, binary
+/// - **All auth types**: Bearer, Basic, JWT, OAuth 1/2, API Key, Digest, Hawk,
+///   AWS Signature, NTLM, Akamai EdgeGrid
+/// - **Params**: simple and multi-value query parameters
+/// - **Scripts**: pre-request and post-response hooks
+/// - **Cookies**: automatic cookie jar per domain
+/// - **Loading**: `flutter_easyloading` overlay
+/// - **Snackbars**: GetX snackbars with full colour/message customization
+/// - **Navigation**: automatic GetX navigation after success
+/// - **Retry**: configurable retry count with delay
+/// - **401 refresh**: automatic token refresh and single retry
+/// - **Testing**: injectable [http.Client] for unit tests
+library flutter_api_craft;
+
+// ── Public API ────────────────────────────────────────────────────────────────
 export 'utils/enums.dart';
 export 'models/api_authorization.dart';
 export 'models/api_body.dart';
@@ -7,78 +46,108 @@ export 'models/api_models.dart';
 export 'models/api_response.dart';
 export 'interceptors/cookie_manager.dart';
 
-// ── Internal imports ──────────────────────────────────────────────────────────
+// ── Internal ──────────────────────────────────────────────────────────────────
 import 'dart:convert';
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_api_craft/utils/enums.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart' as getx;
 import 'package:http/http.dart' as http;
 
-import '../interceptors/cookie_manager.dart';
-import '../models/api_authorization.dart';
-import '../models/api_body.dart';
-import '../models/api_models.dart';
-import '../models/api_response.dart';
 import 'configs/request_builder.dart';
+import 'interceptors/cookie_manager.dart';
+import 'models/api_authorization.dart';
+import 'models/api_body.dart';
+import 'models/api_models.dart';
+import 'models/api_response.dart';
+import 'utils/enums.dart';
 
-/// The main entry point for all API calls.
+/// The main entry point for all API calls in the `flutter_api_craft` package.
+///
+/// Create an instance, configure it, then call [call] to execute the request.
+/// The constructor accepts every option you'd find in Postman, so the complete
+/// call configuration lives in one place.
 ///
 /// ```dart
-/// final response = await FlutterApiCraft(
+/// // GET request
+/// final res = await FlutterApiCraft(
+///   baseUrl: 'https://jsonplaceholder.typicode.com',
+///   path: '/posts',
+///   apiParams: ApiParams.simple({'_limit': '5'}),
+/// ).call();
+///
+/// // POST with Bearer auth + loading + snackbar + auto-pop
+/// final res = await FlutterApiCraft(
 ///   baseUrl: 'https://api.example.com',
 ///   path: '/auth/login',
 ///   apiType: ApiType.post,
-///   apiBody: ApiBody.json({'email': 'a@b.com', 'password': '123456'}),
+///   apiAuthorization: ApiAuthorization.bearer(token),
+///   apiBody: ApiBody.json({'email': email, 'password': pass}),
 ///   enableLoading: true,
 ///   enableApiSuccessResponseGetSnackBar: true,
+///   enableApiErrorResponseGetSnackBar: true,
 ///   apiSuccessResponseNavigation: ApiSuccessNavigation.pop(),
+/// ).call();
+///
+/// // Multipart form-data (profile photo upload)
+/// final res = await FlutterApiCraft(
+///   baseUrl: 'https://api.example.com',
+///   path: '/users/update-profile',
+///   apiType: ApiType.put,
+///   apiAuthorization: ApiAuthorization.bearer(token),
+///   apiBody: ApiBody.formData(
+///     fields: {'fullName': 'John Doe'},
+///     files: [ApiFile(fieldName: 'avatar', path: pickedFilePath)],
+///   ),
+///   enableLoading: true,
 /// ).call();
 /// ```
 class FlutterApiCraft {
   // ── Core ──────────────────────────────────────────────────────────────────
 
-  /// Base URL for the request. E.g. `"https://api.example.com"`
+  /// Base URL for all requests, e.g. `"https://api.example.com"`.
   final String baseUrl;
 
-  /// Path (appended to baseUrl). Can also be a full URL.
-  /// E.g. `"/auth/login"` or `"https://other.domain/endpoint"`
+  /// Request path appended to [baseUrl], e.g. `"/auth/login"`.
+  ///
+  /// If this starts with `"http"` it is used as an absolute URL and
+  /// [baseUrl] is ignored.
   final String path;
 
-  /// HTTP method.
+  /// HTTP method. Defaults to [ApiType.get].
   final ApiType apiType;
 
   // ── Request building ──────────────────────────────────────────────────────
 
-  /// Request body (none, JSON, form-data, urlencoded, binary, GraphQL).
+  /// Request body. Supports none, JSON, form-data, URL-encoded, GraphQL,
+  /// binary, XML, HTML, and JavaScript content types.
   final ApiBody? apiBody;
 
-  /// Extra request headers merged with defaults + auth headers.
+  /// Extra request headers merged with the authorization headers.
   final Map<String, String> apiHeaders;
 
-  /// Authorization configuration (Bearer, Basic, OAuth2, API Key, etc.).
+  /// Authorization configuration. Supports all Postman auth types.
   final ApiAuthorization? apiAuthorization;
 
-  /// Query parameters added to the URL.
+  /// Query parameters appended to the URL.
   final ApiParams? apiParams;
 
-  /// Pre-request and post-response scripts.
+  /// Pre-request and post-response lifecycle hooks.
   final ApiScript? apiScripts;
 
-  /// Cookie jar configuration.
+  /// Cookie jar configuration for automatic cookie management.
   final ApiCookies? apiCookies;
 
-  /// HTTP-level settings (redirects, SSL, timeouts).
+  /// Low-level HTTP settings (redirects, timeouts, SSL).
   final ApiSettings apiSettings;
 
   // ── UX / Feedback ─────────────────────────────────────────────────────────
 
-  /// Show a loading overlay while the request is in-flight.
+  /// Show a `flutter_easyloading` overlay while the request is in-flight.
   final bool enableLoading;
 
-  /// Loading overlay message.
+  /// Message displayed in the loading overlay. Defaults to `"Loading..."`.
   final String loadingMessage;
 
   /// Print the raw response body to the debug console.
@@ -87,52 +156,55 @@ class FlutterApiCraft {
   /// Print a formatted success log to the debug console.
   final bool enableApiSuccessResponseDebugPrint;
 
-  /// Show a GetX snackbar on success.
+  /// Show a GetX snackbar on a successful (2xx + success) response.
   final bool enableApiSuccessResponseGetSnackBar;
 
-  /// Show a GetX snackbar on error.
+  /// Show a GetX snackbar on a failed response.
   final bool enableApiErrorResponseGetSnackBar;
 
-  /// Full snackbar customization (titles, colors, message keys, etc.).
+  /// Full customization of the success and error snackbars.
   final ApiSnackBarConfig? snackBarConfig;
 
-  /// Navigate after a successful response.
+  /// Navigation action to perform after a successful response.
   final ApiSuccessNavigation? apiSuccessResponseNavigation;
 
-  // ── Refresh / Retry ───────────────────────────────────────────────────────
+  // ── Retry / Refresh ───────────────────────────────────────────────────────
 
-  /// Automatically refresh on 401 using this callback, then retry once.
+  /// When the server returns 401, this callback is invoked to refresh the
+  /// token. If it returns a non-null string the request is retried once with
+  /// the new token as a Bearer token.
   final Future<String?> Function()? onUnauthorizedRefreshToken;
 
-  /// Max retry attempts (default 0 = no retry on failure).
+  /// Number of automatic retries on failure. Defaults to `0` (no retries).
   final int retryCount;
 
-  /// Delay between retries.
+  /// Delay between retry attempts. Defaults to 1 second.
   final Duration retryDelay;
 
   // ── Lifecycle callbacks ───────────────────────────────────────────────────
 
-  /// Called with the final [ApiResponse] on success.
+  /// Called with the final [ApiResponse] when the request succeeds.
   final void Function(ApiResponse response)? onSuccess;
 
-  /// Called with the final [ApiResponse] on failure.
+  /// Called with the final [ApiResponse] when the request fails.
   final void Function(ApiResponse response)? onError;
 
-  /// Called regardless of outcome (like a `finally` block).
+  /// Called after the request completes, regardless of outcome.
   final void Function()? onComplete;
 
   // ── Testing ───────────────────────────────────────────────────────────────
 
-  /// Optional HTTP client — inject a [MockClient] here for unit tests.
-  /// If null, a default [http.Client] is used.
+  /// Optional HTTP client for unit testing.
   ///
-  /// Example:
+  /// Inject a `MockClient` (from the `http` package) here to test your
+  /// controllers without making real network calls.
+  ///
   /// ```dart
   /// FlutterApiCraft(
   ///   baseUrl: 'https://api.example.com',
   ///   path: '/login',
   ///   httpClient: MockClient((request) async {
-  ///     return http.Response('{"success": true}', 200);
+  ///     return http.Response('{"success": true, "token": "abc"}', 200);
   ///   }),
   /// )
   /// ```
@@ -140,6 +212,10 @@ class FlutterApiCraft {
 
   // ── Constructor ───────────────────────────────────────────────────────────
 
+  /// Creates a [FlutterApiCraft] instance.
+  ///
+  /// Only [baseUrl] and [path] are required. All other parameters have
+  /// sensible defaults.
   const FlutterApiCraft({
     required this.baseUrl,
     required this.path,
@@ -165,26 +241,25 @@ class FlutterApiCraft {
     this.onSuccess,
     this.onError,
     this.onComplete,
-    this.httpClient, // ← NEW: inject for testing
+    this.httpClient,
   });
 
-  // ── Main call method ──────────────────────────────────────────────────────
+  // ── Public API ────────────────────────────────────────────────────────────
 
-  /// Execute the request. Returns an [ApiResponse] — never throws.
+  /// Executes the HTTP request and returns an [ApiResponse].
+  ///
+  /// Never throws — all errors are captured and returned in the response.
   Future<ApiResponse> call() async {
     try {
       if (enableLoading) EasyLoading.show(status: loadingMessage);
-
       final response = await _executeWithRetry(attempt: 0);
-
       if (enableLoading) await EasyLoading.dismiss();
-
       _handleFeedback(response);
       onComplete?.call();
       return response;
     } catch (e, stack) {
       if (enableLoading) await EasyLoading.dismiss();
-      dev.log('ApiClient unexpected error: $e', stackTrace: stack);
+      dev.log('FlutterApiCraft error: $e', stackTrace: stack, name: 'flutter_api_craft');
       final errResponse = ApiResponse(
         statusCode: 0,
         rawBody: '',
@@ -205,11 +280,10 @@ class FlutterApiCraft {
   Future<ApiResponse> _executeWithRetry({required int attempt}) async {
     final response = await _executeOnce();
 
-    // Handle 401 token refresh
     if (response.statusCode == 401 && onUnauthorizedRefreshToken != null) {
       final newToken = await onUnauthorizedRefreshToken!();
       if (newToken != null) {
-        final refreshed = FlutterApiCraft(
+        return FlutterApiCraft(
           baseUrl: baseUrl,
           path: path,
           apiType: apiType,
@@ -220,16 +294,13 @@ class FlutterApiCraft {
           apiScripts: apiScripts,
           apiCookies: apiCookies,
           apiSettings: apiSettings,
-          enableBodyResponseDebugPrint: enableBodyResponseDebugPrint,
-          enableApiSuccessResponseDebugPrint: enableApiSuccessResponseDebugPrint,
-          httpClient: httpClient, // ← pass through to refreshed instance
-        );
-        return refreshed._executeOnce();
+          httpClient: httpClient,
+        )._executeOnce();
       }
     }
 
     if (!response.isSuccess && attempt < retryCount) {
-      await Future.delayed(retryDelay);
+      await Future<void>.delayed(retryDelay);
       return _executeWithRetry(attempt: attempt + 1);
     }
 
@@ -239,21 +310,19 @@ class FlutterApiCraft {
   // ── Single execution ──────────────────────────────────────────────────────
 
   Future<ApiResponse> _executeOnce() async {
-    // Use injected client or create a fresh default one
     final client = httpClient ?? http.Client();
 
     try {
-      // Mutable copies for scripts to modify
       final mutableHeaders = Map<String, String>.from(apiHeaders);
       final mutableParams = Map<String, String>.from(apiParams?.query ?? {});
       final mutableBody = <String, dynamic>{};
 
       if (apiBody?.rawData is Map) {
         mutableBody.addAll(
-            Map<String, dynamic>.from(apiBody!.rawData as Map<String, dynamic>));
+          Map<String, dynamic>.from(apiBody!.rawData as Map<String, dynamic>),
+        );
       }
 
-      // ① Pre-request script
       if (apiScripts?.preRequest != null) {
         await apiScripts!.preRequest!(
           headers: mutableHeaders,
@@ -262,13 +331,11 @@ class FlutterApiCraft {
         );
       }
 
-      // ② Merge script mutations back into params
       final finalParams = ApiParams(
         query: {...?apiParams?.query, ...mutableParams},
         multiQuery: apiParams?.multiQuery,
       );
 
-      // ③ Build request
       final request = await RequestBuilder.build(
         baseUrl: baseUrl,
         path: path,
@@ -280,19 +347,17 @@ class FlutterApiCraft {
         cookies: apiCookies,
       );
 
-      // ④ Send via the (possibly mocked) client
-      final streamedResponse = await client
-          .send(request)
-          .timeout(apiSettings.receiveTimeout);
-
+      final streamedResponse =
+      await client.send(request).timeout(apiSettings.receiveTimeout);
       final responseString = await streamedResponse.stream.bytesToString();
       final responseHeaders = streamedResponse.headers;
 
-      // ⑤ Handle cookies from response
       CookieManager.instance.handleResponseCookies(
-          request.url.host, responseHeaders, apiCookies);
+        request.url.host,
+        responseHeaders,
+        apiCookies,
+      );
 
-      // ⑥ Parse body
       dynamic parsedBody;
       try {
         parsedBody = jsonDecode(responseString);
@@ -300,17 +365,13 @@ class FlutterApiCraft {
         parsedBody = responseString;
       }
 
-      // ⑦ Debug prints
       if (enableBodyResponseDebugPrint) {
         dev.log(
-          '🌐 API Response [$path]\n'
-              'Status: ${streamedResponse.statusCode}\n'
-              'Body: $responseString',
+          '🌐 [$path] ${streamedResponse.statusCode}\n$responseString',
           name: 'flutter_api_craft',
         );
       }
 
-      // ⑧ Post-response script
       if (apiScripts?.postResponse != null) {
         await apiScripts!.postResponse!(
           statusCode: streamedResponse.statusCode,
@@ -319,27 +380,21 @@ class FlutterApiCraft {
         );
       }
 
-      // ⑨ Determine success
       final code = streamedResponse.statusCode;
       final isSuccessCode = code >= 200 && code < 300;
-      bool successFlag = isSuccessCode;
+      var successFlag = isSuccessCode;
 
       if (parsedBody is Map && parsedBody.containsKey('success')) {
         successFlag = isSuccessCode && parsedBody['success'] == true;
       }
 
-      // ⑩ Extract error message
       String? errorMsg;
       if (!successFlag) {
-        errorMsg =
-            _extractMessage(parsedBody) ?? 'Request failed with status $code';
+        errorMsg = _extractMessage(parsedBody) ?? 'Request failed ($code)';
       }
 
       if (enableApiSuccessResponseDebugPrint && successFlag) {
-        dev.log(
-          '✅ API Success [$path] — $code',
-          name: 'flutter_api_craft',
-        );
+        dev.log('✅ [$path] $code', name: 'flutter_api_craft');
       }
 
       final apiResponse = ApiResponse(
@@ -369,12 +424,11 @@ class FlutterApiCraft {
         exception: e,
       );
     } finally {
-      // Only close if we created the client ourselves (not injected)
       if (httpClient == null) client.close();
     }
   }
 
-  // ── Feedback (snackbars + navigation) ─────────────────────────────────────
+  // ── Feedback ──────────────────────────────────────────────────────────────
 
   void _handleFeedback(ApiResponse response) {
     final cfg = snackBarConfig ?? const ApiSnackBarConfig();
@@ -390,17 +444,16 @@ class FlutterApiCraft {
         getx.Get.snackbar(
           cfg.successTitle ?? 'Success',
           msg,
+          // Use config colors directly without casting
           backgroundColor:
           cfg.successBackgroundColor ?? cfg.backgroundColor ?? Colors.green,
-          colorText: cfg.textColor as Color? ?? Colors.white,
-          snackPosition: cfg.position as getx.SnackPosition? ??
-              getx.SnackPosition.BOTTOM,
+          colorText: cfg.textColor ?? Colors.white,
+          snackPosition: cfg.position ?? getx.SnackPosition.BOTTOM,
           duration: cfg.duration,
           borderRadius: cfg.borderRadius,
-          margin: cfg.margin as EdgeInsets? ?? const EdgeInsets.all(12),
+          margin: cfg.margin ?? const EdgeInsets.all(12),
         );
       }
-
       _handleNavigation(response);
     } else {
       if (enableApiErrorResponseGetSnackBar) {
@@ -413,12 +466,11 @@ class FlutterApiCraft {
           msg,
           backgroundColor:
           cfg.errorBackgroundColor ?? cfg.backgroundColor ?? Colors.red,
-          colorText: cfg.textColor as Color? ?? Colors.white,
-          snackPosition: cfg.position as getx.SnackPosition? ??
-              getx.SnackPosition.BOTTOM,
+          colorText: cfg.textColor ?? Colors.white,
+          snackPosition: cfg.position ?? getx.SnackPosition.BOTTOM,
           duration: cfg.duration,
           borderRadius: cfg.borderRadius,
-          margin: cfg.margin as EdgeInsets? ?? const EdgeInsets.all(12),
+          margin: cfg.margin ?? const EdgeInsets.all(12),
         );
       }
     }
@@ -433,39 +485,39 @@ class FlutterApiCraft {
       case NavigationAction.none:
         break;
       case NavigationAction.pop:
-        getx.Get.back();
-        break;
+        getx.Get.back<void>();
       case NavigationAction.popUntil:
         if (nav.routeName != null) {
+          // ignore: inference_failure_on_function_invocation
           getx.Get.until((route) => route.settings.name == nav.routeName);
         }
-        break;
       case NavigationAction.pushNamed:
         if (nav.routeName != null) {
-          getx.Get.toNamed(nav.routeName!, arguments: nav.arguments);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.toNamed<void>(nav.routeName!, arguments: nav.arguments);
         }
-        break;
       case NavigationAction.pushReplacement:
         if (nav.routeName != null) {
-          getx.Get.offNamed(nav.routeName!, arguments: nav.arguments);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.offNamed<void>(nav.routeName!, arguments: nav.arguments);
         }
-        break;
       case NavigationAction.pushAndRemoveUntil:
         if (nav.routeName != null) {
-          getx.Get.offAllNamed(nav.routeName!, arguments: nav.arguments);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.offAllNamed<void>(nav.routeName!, arguments: nav.arguments);
         }
-        break;
       case NavigationAction.offAll:
         if (nav.routeName != null) {
-          getx.Get.offAllNamed(nav.routeName!, arguments: nav.arguments);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.offAllNamed<void>(nav.routeName!, arguments: nav.arguments);
         } else if (nav.widgetBuilder != null) {
-          getx.Get.offAll(nav.widgetBuilder!);
+          // ignore: inference_failure_on_function_invocation
+          getx.Get.offAll<void>(nav.widgetBuilder!);
         }
-        break;
     }
   }
 
-  // ── Helper: extract message from response body ────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   static String? _extractMessage(dynamic body) {
     if (body is Map) {

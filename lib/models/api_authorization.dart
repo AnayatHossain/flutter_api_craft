@@ -1,12 +1,14 @@
 import '../utils/enums.dart';
 
-/// Holds all authorization configuration.
-/// Mirrors every Postman auth type.
+/// Holds all authorization configuration for an API request.
 ///
-/// Usage examples:
+/// Mirrors every auth type available in Postman's Authorization tab.
+///
+/// ## Quick constructors
+///
 /// ```dart
-/// // Bearer token
-/// ApiAuthorization.bearer('my-token')
+/// // Bearer token (most common)
+/// ApiAuthorization.bearer('eyJhbGci...')
 ///
 /// // Basic auth
 /// ApiAuthorization.basic(user: 'admin', pass: 'secret')
@@ -17,66 +19,119 @@ import '../utils/enums.dart';
 /// // API Key in query param
 /// ApiAuthorization.apiKeyQuery(name: 'api_key', value: 'abc123')
 ///
-/// // OAuth2
-/// ApiAuthorization(
-///   type: ApiAuthorizationType.oauth2,
-///   oauth2AccessToken: 'token',
-///   oauth2HeaderPrefix: 'Bearer',
-/// )
+/// // OAuth 2.0 with existing token
+/// ApiAuthorization.oauth2Token('my-access-token')
+///
+/// // JWT Bearer
+/// ApiAuthorization.jwtBearer('eyJhbGci...')
 /// ```
 class ApiAuthorization {
+  /// The authorization type to use.
   final ApiAuthorizationType type;
 
-  // ── Bearer / JWT ──────────────────────────────────────────────────────────
+  /// Token string for [ApiAuthorizationType.bearerToken] and
+  /// [ApiAuthorizationType.jwtBearer].
   final String? token;
+
+  /// JWT signing secret (informational — signing is handled externally).
   final String? jwtSecret;
-  final String? jwtAlgorithm; // e.g. "HS256"
+
+  /// JWT signing algorithm, e.g. `"HS256"` or `"RS256"`.
+  final String? jwtAlgorithm;
+
+  /// Additional JWT payload claims.
   final Map<String, dynamic>? jwtPayload;
 
-  // ── Basic Auth ────────────────────────────────────────────────────────────
+  /// Username for [ApiAuthorizationType.basicAuth] and
+  /// [ApiAuthorizationType.digestAuth].
   final String? username;
+
+  /// Password for [ApiAuthorizationType.basicAuth] and
+  /// [ApiAuthorizationType.digestAuth].
   final String? password;
 
-  // ── Digest Auth ───────────────────────────────────────────────────────────
+  /// Digest auth realm (used in the challenge header).
   final String? realm;
 
-  // ── OAuth 1.0 ─────────────────────────────────────────────────────────────
+  /// OAuth 1.0 consumer key.
   final String? consumerKey;
-  final String? consumerSecret;
-  final String? accessToken;
-  final String? tokenSecret;
-  final String? signatureMethod; // "HMAC-SHA1", "RSA-SHA1", "PLAINTEXT"
 
-  // ── OAuth 2.0 ─────────────────────────────────────────────────────────────
+  /// OAuth 1.0 consumer secret.
+  final String? consumerSecret;
+
+  /// OAuth 1.0 access token.
+  final String? accessToken;
+
+  /// OAuth 1.0 token secret.
+  final String? tokenSecret;
+
+  /// OAuth 1.0 signature method: `"HMAC-SHA1"`, `"RSA-SHA1"`, or `"PLAINTEXT"`.
+  final String? signatureMethod;
+
+  /// OAuth 2.0 access token sent in the Authorization header.
   final String? oauth2AccessToken;
-  final String? oauth2HeaderPrefix; // default "Bearer"
+
+  /// Prefix for the OAuth 2.0 header. Defaults to `"Bearer"`.
+  final String? oauth2HeaderPrefix;
+
+  /// OAuth 2.0 token endpoint URL (for client-credentials flows).
   final String? oauth2TokenUrl;
+
+  /// OAuth 2.0 client ID.
   final String? oauth2ClientId;
+
+  /// OAuth 2.0 client secret.
   final String? oauth2ClientSecret;
+
+  /// OAuth 2.0 requested scope.
   final String? oauth2Scope;
 
-  // ── API Key ───────────────────────────────────────────────────────────────
+  /// The header or query-parameter name for an API key.
   final String? apiKeyName;
+
+  /// The API key value.
   final String? apiKeyValue;
+
+  /// Whether the API key goes in a header or query param.
   final ApiKeyPlacement? apiKeyPlacement;
 
-  // ── AWS Signature ─────────────────────────────────────────────────────────
+  /// AWS IAM access key ID.
   final String? awsAccessKey;
+
+  /// AWS IAM secret access key.
   final String? awsSecretKey;
+
+  /// AWS region, e.g. `"us-east-1"`.
   final String? awsRegion;
+
+  /// AWS service name, e.g. `"execute-api"`.
   final String? awsService;
 
-  // ── Hawk Authentication ───────────────────────────────────────────────────
+  /// Hawk auth ID.
   final String? hawkId;
+
+  /// Hawk auth key.
   final String? hawkKey;
+
+  /// Hawk algorithm, e.g. `"sha256"`.
   final String? hawkAlgorithm;
 
-  // ── NTLM Authentication ───────────────────────────────────────────────────
+  /// NTLM username.
   final String? ntlmUsername;
+
+  /// NTLM password.
   final String? ntlmPassword;
+
+  /// NTLM domain.
   final String? ntlmDomain;
+
+  /// NTLM workstation name.
   final String? ntlmWorkstation;
 
+  /// Creates an [ApiAuthorization] with full control over every field.
+  ///
+  /// Prefer the named constructors (e.g. [ApiAuthorization.bearer]) for the
+  /// common cases.
   const ApiAuthorization({
     this.type = ApiAuthorizationType.none,
     this.token,
@@ -113,55 +168,53 @@ class ApiAuthorization {
     this.ntlmWorkstation,
   });
 
-  // ── Quick constructors ────────────────────────────────────────────────────
-
-  /// Bearer token authorization.
+  /// Sends `Authorization: Bearer <bearerToken>`.
   const ApiAuthorization.bearer(String bearerToken)
       : this(type: ApiAuthorizationType.bearerToken, token: bearerToken);
 
-  /// JWT Bearer token authorization.
+  /// Sends `Authorization: Bearer <jwtToken>`.
   const ApiAuthorization.jwtBearer(String jwtToken)
       : this(type: ApiAuthorizationType.jwtBearer, token: jwtToken);
 
-  /// HTTP Basic Auth (Base64 encodes username:password automatically).
-  const ApiAuthorization.basic({
-    required String user,
-    required String pass,
-  }) : this(
-    type: ApiAuthorizationType.basicAuth,
-    username: user,
-    password: pass,
-  );
+  /// Sends `Authorization: Basic <base64(user:pass)>`.
+  const ApiAuthorization.basic({required String user, required String pass})
+      : this(
+          type: ApiAuthorizationType.basicAuth,
+          username: user,
+          password: pass,
+        );
 
-  /// API Key sent as a request header.
+  /// Injects the API key as the named request header.
   const ApiAuthorization.apiKeyHeader({
     required String name,
     required String value,
   }) : this(
-    type: ApiAuthorizationType.apiKey,
-    apiKeyName: name,
-    apiKeyValue: value,
-    apiKeyPlacement: ApiKeyPlacement.header,
-  );
+          type: ApiAuthorizationType.apiKey,
+          apiKeyName: name,
+          apiKeyValue: value,
+          apiKeyPlacement: ApiKeyPlacement.header,
+        );
 
-  /// API Key appended as a query parameter.
+  /// Appends the API key as a URL query parameter.
   const ApiAuthorization.apiKeyQuery({
     required String name,
     required String value,
   }) : this(
-    type: ApiAuthorizationType.apiKey,
-    apiKeyName: name,
-    apiKeyValue: value,
-    apiKeyPlacement: ApiKeyPlacement.queryParam,
-  );
+          type: ApiAuthorizationType.apiKey,
+          apiKeyName: name,
+          apiKeyValue: value,
+          apiKeyPlacement: ApiKeyPlacement.queryParam,
+        );
 
-  /// OAuth 2.0 with an existing access token.
+  /// Sends `Authorization: <prefix> <accessToken>`.
+  ///
+  /// [prefix] defaults to `"Bearer"`.
   const ApiAuthorization.oauth2Token(
-      String accessToken, {
-        String prefix = 'Bearer',
-      }) : this(
-    type: ApiAuthorizationType.oauth2,
-    oauth2AccessToken: accessToken,
-    oauth2HeaderPrefix: prefix,
-  );
+    String accessToken, {
+    String prefix = 'Bearer',
+  }) : this(
+          type: ApiAuthorizationType.oauth2,
+          oauth2AccessToken: accessToken,
+          oauth2HeaderPrefix: prefix,
+        );
 }

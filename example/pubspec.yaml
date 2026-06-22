@@ -1,0 +1,24 @@
+name: flutter_api_craft_example
+description: Example app demonstrating the flutter_api_craft package.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_api_craft:
+    path: ../
+  get: ^4.6.6
+  flutter_easyloading: ^3.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
