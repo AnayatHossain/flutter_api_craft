@@ -1,6 +1,6 @@
 name: flutter_api_craft
 description: "A comprehensive Flutter HTTP client with auth, retry, loading, snackbars, and GetX navigation support."
-version: 0.0.6
+version: 0.0.7
 homepage: "https://github.com/AnayatHossain/flutter_api_craft"
 repository: "https://github.com/AnayatHossain/flutter_api_craft"
 issue_tracker: "https://github.com/AnayatHossain/flutter_api_craft/issues"

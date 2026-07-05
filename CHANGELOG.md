@@ -1,3 +1,11 @@
+## 0.0.7
+
+- **Wasm compatibility.** Fixed the conditional file-reading import so the
+  package compiles to WebAssembly. It now keys off `dart.library.io` (defaulting
+  to the web stub) instead of `dart.library.html`; the old condition pulled in
+  `dart:io` on Wasm — where it is unavailable — resulting in a partial pub.dev
+  platform score. See https://dart.dev/web/wasm.
+
 ## 0.0.6
 
 - **Flutter web support.** Removed the unconditional `dart:io` import that
